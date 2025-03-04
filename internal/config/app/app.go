@@ -1,0 +1,91 @@
+package app
+
+import (
+	"os"
+	"path/filepath"
+
+	coreutils "github.com/johandrevandeventer/devices-api-server/utils"
+)
+
+var appConfig *AppConfig
+
+// Default configurations
+var defaultAppConfig *AppConfig
+var defaultRuntimeConfig *RuntimeConfig
+var defaultLoggingConfig *LoggingConfig
+
+var persistFilePath string
+var loggingFilePath string
+var stopFileFilePath string
+var connectionsLogFilePath string
+
+func init() {
+	persistFilePath = filepath.Join(coreutils.GetPersistDir(), "persist.json")
+	loggingFilePath = filepath.Join(coreutils.GetLoggingDir(), "app.jsonl")
+	stopFileFilePath = filepath.Join(coreutils.GetTmpDir(), "stop_signal")
+	connectionsLogFilePath = filepath.Join(coreutils.GetConnectionsDir(), "connections.log")
+
+	defaultRuntimeConfig = &RuntimeConfig{
+		RootDir:                coreutils.GetRootDir(),
+		TmpDir:                 coreutils.GetTmpDir(),
+		PersistFilePath:        persistFilePath,
+		StopFileFilepath:       stopFileFilePath,
+		ConnectionsLogFilePath: connectionsLogFilePath,
+	}
+
+	defaultLoggingConfig = &LoggingConfig{
+		Level:      "info",
+		FilePath:   loggingFilePath,
+		MaxSize:    100,
+		MaxBackups: 3,
+		MaxAge:     28,
+		Compress:   true,
+		AddTime:    true,
+	}
+
+	defaultAppConfig = &AppConfig{
+		Runtime: *defaultRuntimeConfig,
+		Logging: *defaultLoggingConfig,
+	}
+
+	appConfig = defaultAppConfig
+}
+
+// InitAppConfig initializes the app configuration
+func InitAppConfig(filePath string) (fileExists bool, err error) {
+	// Check if the config directory exists, if not create it
+	if coreutils.FileExists(filePath) {
+		return true, nil
+	}
+
+	// Create the configuration directory
+	dir := filepath.Dir(filePath)
+	os.Mkdir(dir, 0o770)
+
+	// Save the app configuration
+	err = SaveAppConfig(filePath, true)
+	if err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
+// GetAppConfig returns the app configuration
+func GetAppConfig(filePath string) *AppConfig {
+	err := coreutils.LoadYAMLFile(filePath, &appConfig)
+	if err != nil {
+		appConfig = defaultAppConfig
+	}
+	return appConfig
+}
+
+// SaveAppConfig saves the app configuration
+func SaveAppConfig(filePath string, createFile bool) error {
+	err := coreutils.SaveYAMLFile(filePath, appConfig, createFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
